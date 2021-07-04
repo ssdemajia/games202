@@ -19,7 +19,7 @@ varying highp vec3 vNormal;
 #define BLOCKER_SEARCH_NUM_SAMPLES NUM_SAMPLES
 #define PCF_NUM_SAMPLES NUM_SAMPLES
 #define NUM_RINGS 10
-
+#define W_LIGHT 4.0  // 灯的宽度
 #define EPS 1e-3
 #define PI 3.141592653589793
 #define PI2 6.283185307179586
@@ -38,6 +38,12 @@ highp float rand_2to1(vec2 uv ) {
 	const highp float a = 12.9898, b = 78.233, c = 43758.5453;
 	highp float dt = dot( uv.xy, vec2( a,b ) ), sn = mod( dt, PI );
 	return fract(sin(sn) * c);
+}
+
+float bias() {
+  vec3 lDir = normalize(uLightPos - vFragPos);
+  float doT = dot(lDir, normalize(vNormal));
+  return 1.0/256.0/2.0 * (1.0-doT);
 }
 
 float unpack(vec4 rgbaDepth) {
@@ -83,24 +89,66 @@ void uniformDiskSamples( const in vec2 randomSeed ) {
   }
 }
 
+
+float PCF(sampler2D shadowMap, vec3 coords) {
+  uniformDiskSamples(coords.xy);
+  float depth = 0.0;
+  float filterSize = 1.0/256.0;
+
+  for (int i = 0; i < NUM_SAMPLES; i++)
+  {
+    vec2 delta = poissonDisk[i] * filterSize + coords.xy;
+    float curDepth = unpack(texture2D(shadowMap, delta));
+    if (curDepth + 0.01> coords.z)
+    {
+      depth += 1.0;
+    } else {
+      depth += 0.0;
+    }
+  }
+  return depth / float(NUM_SAMPLES);
+}
+
 float findBlocker( sampler2D shadowMap,  vec2 uv, float zReceiver ) {
-	return 1.0;
+  uniformDiskSamples(uv);
+  float depth = 0.0;
+  float filterSize = 1.0/256.0;
+  int count = 0;
+  for (int i = 0; i < NUM_SAMPLES; i++)
+  {
+    vec2 delta = poissonDisk[i] * filterSize + uv;
+    float curDepth = unpack(texture2D(shadowMap, delta));
+    if (curDepth < zReceiver+0.002)
+    {
+      depth += curDepth;
+      count += 1;
+    }
+  }
+	return depth / float(count);
 }
 
-float PCF(sampler2D shadowMap, vec4 coords) {
-  return 1.0;
-}
-
-float PCSS(sampler2D shadowMap, vec4 coords){
-
+float PCSS(sampler2D shadowMap, vec3 coords){
   // STEP 1: avgblocker depth
-
+  float avgDepth = findBlocker(shadowMap, coords.xy, coords.z);
   // STEP 2: penumbra size
-
+  float w_penumbra = W_LIGHT * (coords.z - avgDepth) / avgDepth;
   // STEP 3: filtering
-  
-  return 1.0;
+  float depth = 0.0;
+  float filterSize = 1.0/256.0 * w_penumbra;
 
+  for (int i = 0; i < NUM_SAMPLES; i++)
+  {
+    vec2 delta = poissonDisk[i] * filterSize + coords.xy;
+    float curDepth = unpack(texture2D(shadowMap, delta));
+    if (curDepth + 0.01> coords.z)
+    {
+      depth += 1.0;
+    } else {
+      depth += 0.0;
+    }
+  }
+  return depth / float(NUM_SAMPLES);
+  return w_penumbra;
 }
 
 
@@ -135,15 +183,14 @@ vec3 blinnPhong() {
 }
 
 void main(void) {
-
   float visibility;
   vec3 projCoords = vPositionFromLight.xyz / vPositionFromLight.w;
   projCoords = (projCoords + 1.0) * 0.5;
-  visibility = useShadowMap(uShadowMap, projCoords);
-
+  // visibility = useShadowMap(uShadowMap, projCoords);
+  // visibility = PCF(uShadowMap, projCoords);
+  visibility = PCSS(uShadowMap, projCoords);
   vec3 phongColor = blinnPhong();
 
   gl_FragColor = vec4(phongColor * visibility, 1.0);
-  // gl_FragColor = vec4(phongColor, visibility);
-  // gl_FragColor = vec4(phongColor, 1.0);
+  // gl_FragColor = vec4(visibility, 0.0, 0.0, 1.0);
 }
