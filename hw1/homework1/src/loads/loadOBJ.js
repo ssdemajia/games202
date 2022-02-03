@@ -15,19 +15,19 @@ function loadOBJ(renderer, path, name, objMaterial, transform) {
 
 	new THREE.MTLLoader(manager)
 		.setPath(path)
-		.load(name + '.mtl', function (materials) {
-			materials.preload();
+		.load(name + '.mtl', async function (materials) {
+			await materials.preload();
 			new THREE.OBJLoader(manager)
 				.setMaterials(materials)
 				.setPath(path)
 				.load(name + '.obj', function (object) {
-					object.traverse(function (child) {
+					object.traverse(async function (child) {
 						if (child.isMesh) {
 							let geo = child.geometry;
 							let mat;
 							if (Array.isArray(child.material)) mat = child.material[0];
 							else mat = child.material;
-
+							mat = await mat;
 							var indices = Array.from({ length: geo.attributes.position.count }, (v, k) => k);
 							let mesh = new Mesh({ name: 'aVertexPosition', array: geo.attributes.position.array },
 								{ name: 'aNormalPosition', array: geo.attributes.normal.array },

@@ -20,7 +20,6 @@ class Shader {
             console.error(shaderSource);
             console.error(('shader compiler error:\n' + gl.getShaderInfoLog(shader)));
         }
-
         return shader;
     };
 

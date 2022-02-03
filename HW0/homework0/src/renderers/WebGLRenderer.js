@@ -38,10 +38,11 @@ class WebGLRenderer {
         if (this.lights.length != 0) {
             for (let l = 0; l < this.lights.length; l++) {
                 let trans = new TRSTransform(lightPos);
-                if (! this.lights[l].meshRender.isReady())
+                if (!this.lights[l].meshRender.isReady())
+                {
                     continue;
+                }
                 this.lights[l].meshRender.draw(this.camera, trans);
-
                 for (let i = 0; i < this.meshes.length; i++) {
                     const mesh = this.meshes[i];
                     if (!mesh.isReady())

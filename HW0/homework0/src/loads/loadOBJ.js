@@ -3,7 +3,7 @@ function loadOBJ(renderer, path, name) {
 
 	const manager = new THREE.LoadingManager();
 	manager.onProgress = function (item, loaded, total) {
-		console.log(item, loaded, total);
+		console.log("onProgress:", item, loaded, total);
 	};
 
 	function onProgress(xhr) {
@@ -16,19 +16,26 @@ function loadOBJ(renderer, path, name) {
 
 	new THREE.MTLLoader(manager)
 		.setPath(path)
-		.load(name + '.mtl', function (materials) {
-			materials.preload();
+		.load(name + '.mtl', async function (materials) {
+			
+			await materials.preload();
+			console.log(materials);
 			new THREE.OBJLoader(manager)
 				.setMaterials(materials)
 				.setPath(path)
 				.load(name + '.obj', function (object) {
-					object.traverse(function (child) {
+					object.traverse(async function (child) {
+						console.log("load Obj:", child.isMesh == true, child);
 						if (child.isMesh) {
 							let geo = child.geometry;
 							let mat;
-							if (Array.isArray(child.material)) mat = child.material[0];
-							else mat = child.material;
-
+							if (Array.isArray(child.material)) {
+								mat = child.material[0];
+							}
+							else {
+								mat = child.material;
+							}
+							mat = await mat;
 							var indices = Array.from({ length: geo.attributes.position.count }, (v, k) => k);
 							let mesh = new Mesh({ name: 'aVertexPosition', array: geo.attributes.position.array },
 								{ name: 'aNormalPosition', array: geo.attributes.normal.array },
@@ -36,9 +43,10 @@ function loadOBJ(renderer, path, name) {
 								indices);
 
 							let colorMap = null;
-							if (mat.map != null) colorMap = new Texture(renderer.gl, mat.map.image);
+							if (mat.map != null && mat.map.image != null) {
+								colorMap = new Texture(renderer.gl, mat.map.image);
+							}
 							// MARK: You can change the myMaterial object to your own Material instance
-							console.log(mat)
 							let textureSample = 0;
 							let myMaterial;
 							let uniforms = {

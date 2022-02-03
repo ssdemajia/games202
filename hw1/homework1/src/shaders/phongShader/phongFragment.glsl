@@ -99,7 +99,7 @@ float PCF(sampler2D shadowMap, vec3 coords) {
   {
     vec2 delta = poissonDisk[i] * filterSize + coords.xy;
     float curDepth = unpack(texture2D(shadowMap, delta));
-    if (curDepth + 0.01> coords.z)
+    if(curDepth + 0.01 > coords.z)
     {
       depth += 1.0;
     } else {
@@ -148,7 +148,6 @@ float PCSS(sampler2D shadowMap, vec3 coords){
     }
   }
   return depth / float(NUM_SAMPLES);
-  return w_penumbra;
 }
 
 
@@ -192,5 +191,6 @@ void main(void) {
   vec3 phongColor = blinnPhong();
 
   gl_FragColor = vec4(phongColor * visibility, 1.0);
-  // gl_FragColor = vec4(visibility, 0.0, 0.0, 1.0);
+  // float depth = unpack(texture2D(uShadowMap, projCoords.xy));
+  // gl_FragColor = vec4(depth, 0.0, 0.0, 1.0);
 }

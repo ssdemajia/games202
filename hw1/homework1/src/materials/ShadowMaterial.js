@@ -5,7 +5,7 @@ class ShadowMaterial extends Material {
 
         super({
             'uLightMVP': { type: 'matrix4fv', value: lightMVP }
-        }, [], vertexShader, fragmentShader, light.fbo);
+        }, [], vertexShader, fragmentShader, light.fbo);  // 在这传入fbo
     }
 }
 
