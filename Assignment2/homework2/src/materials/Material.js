@@ -10,13 +10,14 @@ class Material {
         this.#vsSrc = vsSrc;
         this.#fsSrc = fsSrc;
         
-        this.#flatten_uniforms = ['uViewMatrix','uModelMatrix', 'uProjectionMatrix', 'uCameraPos', 'uLightPos'];
+        this.#flatten_uniforms = ['uViewMatrix','uModelMatrix', 'uProjectionMatrix', 'uCameraPos', 'uLightPos', 'uPrecomputeL0', 'uPrecomputeL1', 'uPrecomputeL2'];
         for (let k in uniforms) {
             this.#flatten_uniforms.push(k);
         }
         this.#flatten_attribs = attribs;
 
         this.frameBuffer = frameBuffer;
+        this.hasPreComputeLight = false;
     }
 
     setMeshAttribs(extraAttribs) {

@@ -9,8 +9,6 @@ class SkyBoxMaterial extends Material {
 }
 
 async function buildSkyBoxMaterial(vertexPath, fragmentPath) {
-    
-
     let vertexShader = await getShaderString(vertexPath);
     let fragmentShader = await getShaderString(fragmentPath);
 

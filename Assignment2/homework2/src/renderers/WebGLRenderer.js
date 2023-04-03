@@ -29,7 +29,6 @@ class WebGLRenderer {
         console.assert(this.lights.length == 1, "Multiple lights");
 
         const timer = Date.now() * 0.0001;
-
         for (let l = 0; l < this.lights.length; l++) {
             // Draw light
             this.lights[l].meshRender.mesh.transform.translate = this.lights[l].entity.lightPos;
@@ -61,8 +60,16 @@ class WebGLRenderer {
 
                     // Bonus - Fast Spherical Harmonic Rotation
                     //let precomputeL_RGBMat3 = getRotationPrecomputeL(precomputeL[guiParams.envmapId], cameraModelMatrix);
-                    
-                    
+
+                    let Mat3Value = getMat3ValueFromRGB(precomputeL[guiParams.envmapId]);
+                    for(let j = 0; j < 3; j++){
+                        if (k == 'uPrecomputeL'+j+'') {
+                            gl.uniformMatrix3fv(
+                                this.meshes[i].shader.program.uniforms[k],
+                                false,
+                                Mat3Value[j]);
+                        }
+                    }
                 }
 
                 this.meshes[i].draw(this.camera);

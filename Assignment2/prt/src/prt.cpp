@@ -129,6 +129,19 @@ namespace ProjEnv
                     int index = (y * width + x) * channel;
                     Eigen::Array3f Le(images[i][index + 0], images[i][index + 1],
                                       images[i][index + 2]);
+                    // 计算立体角在单位球体上的投影
+                    float deltaW = CalcArea(x, y, width, height);
+                    // SHOrder对应阶数
+                    for (int L = 0; L <= SHOrder; L++)
+                    {
+                        for (int M = -L; M <= L; M++)
+                        {
+                            Eigen::Vector3d newDir(dir.x(), dir.y(), dir.z());
+                            double sh = (float)sh::EvalSH(L, M, newDir.normalized());
+                            int index = sh::GetIndex(L, M);
+                            SHCoeffiecents[index] += sh * Le * deltaW;
+                        }
+                    }
                 }
             }
         }
@@ -203,20 +216,38 @@ public:
         {
             const Point3f &v = mesh->getVertexPositions().col(i);
             const Normal3f &n = mesh->getVertexNormals().col(i);
+
+            // 这里实际返回的是被投影的函数值
             auto shFunc = [&](double phi, double theta) -> double {
                 Eigen::Array3d d = sh::ToVector(phi, theta);
+                Eigen::Vector3d dir(d.x(), d.y(), d.z());
+                Eigen::Vector3d nDir(n.x(), n.y(), n.z());
                 const auto wi = Vector3f(d.x(), d.y(), d.z());
+                double H = dir.normalized().dot(nDir.normalized());
                 if (m_Type == Type::Unshadowed)
                 {
                     // TODO: here you need to calculate unshadowed transport term of a given direction
                     // TODO: 此处你需要计算给定方向下的unshadowed传输项球谐函数值
-                    return 0;
+                    if (H <= 0.0)
+                        return 0;
+                    
+                    return H / 3.1415926;
                 }
                 else
                 {
                     // TODO: here you need to calculate shadowed transport term of a given direction
                     // TODO: 此处你需要计算给定方向下的shadowed传输项球谐函数值
-                    return 0;
+                    if (H <= 0.0)
+                        return 0;
+                    Eigen::Vector3f df(d.x(), d.y(), d.z());
+                    Ray3f ray(v, df);
+                    Intersection its;
+                    if (scene->rayIntersect(ray, its))
+                    {
+                        return 0;
+                    }
+
+                    return H / 3.1415926;
                 }
             };
             auto shCoeff = sh::ProjectFunction(SHOrder, shFunc, m_SampleCount);
@@ -228,6 +259,72 @@ public:
         if (m_Type == Type::Interreflection)
         {
             // TODO: leave for bonus
+            Eigen::MatrixXf directTransportSH(m_TransportSHCoeffs);  // 光源直接作用的sh
+            Eigen::MatrixXf indirectTransportSH(m_TransportSHCoeffs);  // 光源间接作用的sh
+            for (int i = 0; i < m_Bounce; i++)
+            {
+                Eigen::MatrixXf shCoeffs;
+                shCoeffs.resize(SHCoeffLength, mesh->getVertexCount());
+                for (int i = 0; i < mesh->getVertexCount(); i++)
+                {
+                    const Point3f& v = mesh->getVertexPositions().col(i);
+                    const Normal3f& n = mesh->getVertexNormals().col(i);
+
+                    const int sample_side = static_cast<int>(floor(sqrt(m_SampleCount)));
+                    std::unique_ptr<std::vector<double>> coeffs(new std::vector<double>());
+                    coeffs->assign(sh::GetCoefficientCount(SHOrder), 0.0);
+
+                    std::random_device rd;
+                    std::mt19937 gen(rd());
+                    std::uniform_real_distribution<> rng(0.0, 1.0);
+                    for (int t = 0; t < sample_side; t++) {
+                        for (int p = 0; p < sample_side; p++) {
+                            double alpha = (t + rng(gen)) / sample_side;
+                            double beta = (p + rng(gen)) / sample_side;
+                            // See http://www.bogotobogo.com/Algorithms/uniform_distribution_sphere.php
+                            double phi = 2.0 * M_PI * beta;
+                            double theta = acos(2.0 * alpha - 1.0);
+
+                            // evaluate the analytic function for the current spherical coords
+                            Eigen::Array3d d = sh::ToVector(phi, theta);
+                            Eigen::Vector3d dir(d.x(), d.y(), d.z());
+                            Eigen::Vector3d nDir(n.x(), n.y(), n.z());
+                            double H = dir.normalized().dot(nDir.normalized());
+                            if (H <= 0)
+                                continue;
+                            Eigen::Vector3f df(d.x(), d.y(), d.z());
+                            Ray3f ray(v, df);
+                            Intersection its;
+                            if (scene->rayIntersect(ray, its))
+                            {
+                                for (int k = 0; k < SHCoeffLength; k++)
+                                {
+                                    float a = indirectTransportSH.col(its.tri_index.x()).coeff(k) * its.bary.x();
+                                    float b = indirectTransportSH.col(its.tri_index.y()).coeff(k) * its.bary.y();
+                                    float c = indirectTransportSH.col(its.tri_index.z()).coeff(k) * its.bary.z();
+                                    float sh = a + b + c;
+                                    (*coeffs)[k] += sh * H / 3.1415926;
+                                }
+                            }
+                            
+                        }
+                    }
+
+                    // scale by the probability of a particular sample, which is
+                    // 4pi/sample_side^2. 4pi for the surface area of a unit sphere, and
+                    // 1/sample_side^2 for the number of samples drawn uniformly.
+                    double weight = 4.0 * M_PI / (sample_side * sample_side);
+                    for (unsigned int i = 0; i < coeffs->size(); i++) {
+                        (*coeffs)[i] *= weight;
+                    }
+
+                    for (int j = 0; j < coeffs->size(); j++)
+                    {
+                        indirectTransportSH.col(i).coeffRef(j) = (*coeffs)[j];
+                    }
+                }
+            }
+            m_TransportSHCoeffs = indirectTransportSH + directTransportSH;
         }
 
         // Save in face format
@@ -272,13 +369,13 @@ public:
 
         const Vector3f &bary = its.bary;
         Color3f c = bary.x() * c0 + bary.y() * c1 + bary.z() * c2;
-        // TODO: you need to delete the following four line codes after finishing your calculation to SH,
-        //       we use it to visualize the normals of model for debug.
-        // TODO: 在完成了球谐系数计算后，你需要删除下列四行，这四行代码的作用是用来可视化模型法线
-        if (c.isZero()) {
-            auto n_ = its.shFrame.n.cwiseAbs();
-            return Color3f(n_.x(), n_.y(), n_.z());
-        }
+        //// TODO: you need to delete the following four line codes after finishing your calculation to SH,
+        ////       we use it to visualize the normals of model for debug.
+        //// TODO: 在完成了球谐系数计算后，你需要删除下列四行，这四行代码的作用是用来可视化模型法线
+        //if (c.isZero()) {
+        //    auto n_ = its.shFrame.n.cwiseAbs();
+        //    return Color3f(n_.x(), n_.y(), n_.z());
+        //}
         return c;
     }
 

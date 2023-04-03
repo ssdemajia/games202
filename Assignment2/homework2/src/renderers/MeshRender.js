@@ -148,6 +148,7 @@ class MeshRender {
 		const gl = this.gl;
 
 		let textureNum = 0;
+
 		for (let k in this.material.uniforms) {
 
 			if (this.material.uniforms[k].type == 'matrix4fv') {
@@ -207,7 +208,7 @@ class MeshRender {
 	
 		for (var ii = 0; ii < 3; ++ii) {
 			gl.enableVertexAttribArray(this.shader.program.attribs['aPrecomputeLT'] + ii);
-			gl.vertexAttribPointer(this.shader.program.attribs['aPrecomputeLT'] + ii, 3, gl.FLOAT, false, 36, ii * 12);
+			gl.vertexAttribPointer(this.shader.program.attribs['aPrecomputeLT'] + ii, 3, gl.FLOAT, false, 36, ii * 12);  // glsl以列向量为主进行填充！！！
 		}
 
 		// Bind geometry information
