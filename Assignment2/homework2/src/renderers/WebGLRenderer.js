@@ -28,7 +28,7 @@ class WebGLRenderer {
         console.assert(this.lights.length != 0, "No light");
         console.assert(this.lights.length == 1, "Multiple lights");
 
-        const timer = Date.now() * 0.0001;
+        const timer = Date.now() * 0.0002;
         for (let l = 0; l < this.lights.length; l++) {
             // Draw light
             this.lights[l].meshRender.mesh.transform.translate = this.lights[l].entity.lightPos;
@@ -49,7 +49,7 @@ class WebGLRenderer {
                 for (let k in this.meshes[i].material.uniforms) {
 
                     let cameraModelMatrix = mat4.create();
-                    //mat4.fromRotation(cameraModelMatrix, timer, [0, 1, 0]);
+                    mat4.fromRotation(cameraModelMatrix, timer, [0, 1, 0]);
 
                     if (k == 'uMoveWithCamera') { // The rotation of the skybox
                         gl.uniformMatrix4fv(
@@ -59,9 +59,9 @@ class WebGLRenderer {
                     }
 
                     // Bonus - Fast Spherical Harmonic Rotation
-                    //let precomputeL_RGBMat3 = getRotationPrecomputeL(precomputeL[guiParams.envmapId], cameraModelMatrix);
+                    let Mat3Value = getRotationPrecomputeL(precomputeL[guiParams.envmapId], cameraModelMatrix);
 
-                    let Mat3Value = getMat3ValueFromRGB(precomputeL[guiParams.envmapId]);
+                    // let Mat3Value = getMat3ValueFromRGB(precomputeL[guiParams.envmapId]);
                     for(let j = 0; j < 3; j++){
                         if (k == 'uPrecomputeL'+j+'') {
                             gl.uniformMatrix3fv(
