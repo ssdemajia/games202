@@ -7,7 +7,7 @@ class SSRMaterial extends Material {
         super({
             'uLightRadiance': { type: '3fv', value: lightIntensity },
             'uLightDir': { type: '3fv', value: lightDir },
-
+            'uLightVP': { type: '3fv', value: lightVP },
             'uGDiffuse': { type: 'texture', value: camera.fbo.textures[0] },
             'uGDepth': { type: 'texture', value: camera.fbo.textures[1] },
             'uGNormalWorld': { type: 'texture', value: camera.fbo.textures[2] },
