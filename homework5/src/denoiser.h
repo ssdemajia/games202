@@ -29,6 +29,7 @@ class Denoiser {
     void TemporalAccumulation(const Buffer2D<Float3> &curFilteredColor);
     Buffer2D<Float3> Filter(const FrameInfo &frameInfo);
 
+    Buffer2D<Float3> FilterAtros(const FrameInfo &frameInfo);
     Buffer2D<Float3> ProcessFrame(const FrameInfo &frameInfo);
 
   public:
